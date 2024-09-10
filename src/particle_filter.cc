@@ -3,16 +3,16 @@
 using namespace std;
 
 int ParticleFilter::Threshold() {
-	int xi = d_img.area.x_start;
-	int xf = d_img.area.x_end;
-	int yi = d_img.area.y_start;
-	int yf = d_img.area.y_end;
+	int xi = 0;
+	int xf = d_img.cols;
+	int yi = 0;
+	int yf = d_img.rows;
 	
 	const int L = 256;
 	vector<int> gray_levels(L, 0);
-	for (int i = xi; i < xf; i++) {
-		for (int j = yi; j < yf; j++) {
-			int ind = (int)d_denoised_img.at(i, j);
+	for (int i = yi; i < yf; i++) {
+		for (int j = xi; j < xf; j++) {
+			int ind = (int)d_denoised_img.at<double>(i, j);
 			gray_levels[ind]++;
 		}
 	}
@@ -82,7 +82,7 @@ void ParticleFilter::Denoise() {
 	cv::Mat resized_img;
 	int small_rows = (int)zoom_scale * d_denoised_img.rows;
 	int small_cols = (int)zoom_scale * d_denoised_img.cols;
-	cv::resize(d_denoised_img, resized_img, cv::Size(small_rows, small_cols));
+	cv::resize(d_denoised_img, resized_img, cv::Size(small_cols, small_rows));
 }
 
 void ParticleFilter::FindGradients() {
