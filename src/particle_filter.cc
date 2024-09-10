@@ -61,7 +61,7 @@ int ParticleFilter::Threshold() {
 	}
 	
 	d_threshold = I0;
-	d_variance = variance_B;
+	d_variance = mx;
 }
 
 int ParticleFilter::LoadImage(const string& file_name) {
