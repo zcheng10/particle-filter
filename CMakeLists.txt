@@ -1,5 +1,4 @@
 set (SRC
-	src/particle_filter.h
 	src/particle_filter.cc
 	src/main.cpp
 )
@@ -14,6 +13,7 @@ add_executable(${PROJECT_NAME} ${SRC})
 target_include_directories (
 	${PROJECT_NAME} PRIVATE
 	./3rdparty/opencv/include
+	./
 )
 
 target_link_directories(

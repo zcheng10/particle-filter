@@ -1,10 +1,13 @@
-#include <opencv2/opencv.hpp>
+#pragma once
+
 #include <iostream>
 #include <string>
 #include <vector>
 #include <set>
 #include <string>
 #include <tuple>
+
+#include "opencv2/opencv.hpp"
 
 struct Particle {
 	std::set<std::pair<int, int>> pix;
@@ -47,8 +50,10 @@ public:
 	double d_variance;
 
 	int Threshold();
-	int LoadImage(const string file);
+	int LoadImage(const std::string& file);
 	void Clear();
 	//void Prepare();
 	void Denoise();
+
+	void FindGradients();
 };
