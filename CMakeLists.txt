@@ -1,4 +1,6 @@
 set (SRC
+	src/particle_filter.h
+	src/particle_filter.cc
 	src/main.cpp
 )
 
