@@ -9,12 +9,23 @@ void ParticleFilter::Threshold() {
 	int xf = d_img.cols;
 	int yi = 0;
 	int yf = d_img.rows;
-	
+
+	cout << "image shape: ";
+	cout << d_img.rows << " " << d_img.cols << " " << d_img.type() << " <-> ";
+	cout << d_denoised_img.rows << " " << d_denoised_img.cols 
+		<< " " << d_denoised_img.type() << endl;
+
 	const int L = 256;
 	vector<int> gray_levels(L, 0);
 	for (int i = yi; i < yf; i++) {
 		for (int j = xi; j < xf; j++) {
 			int ind = (int)d_denoised_img.at<double>(i, j);
+			ind = std::max(ind, 0);
+			ind = std::min(ind, 255);
+
+			/* if (ind < 0 || ind>255)
+				cout << "wrong GLV " << ind << endl; */
+			
 			gray_levels[ind]++;
 		}
 	}
@@ -48,20 +59,21 @@ void ParticleFilter::Threshold() {
 
 		if (tot - gray_levels_cum[i] == 0) {
 			mu_2 = 0.0;
-		}else{
-			mu_2 = (weighted_tot - weighted_gray_levels_cum[i]) / 
+		}
+		else {
+			mu_2 = (weighted_tot - weighted_gray_levels_cum[i]) /
 				(tot - gray_levels_cum[i]);
 		}
 
 		double variance_B = w1 * pow(mu_1 - mean, 2.0) +
 			w2 * pow(mu_2 - mean, 2.0);
-		
+
 		if (variance_B > mx) {
 			mx = variance_B;
 			I0 = i;
 		}
 	}
-	
+
 	d_I0 = I0;
 	d_variance = mx;
 }
@@ -75,7 +87,7 @@ bool ParticleFilter::PixValid(int x, int y) {
 }
 
 int ParticleFilter::LoadImage(const string& file_name) {
-	d_img = cv::imread(file_name, CV_32FC1);
+	d_img = cv::imread(file_name, cv::IMREAD_GRAYSCALE); //  CV_32FC1);
 	if (d_img.empty()) {
 		cout << "Could not read image file" << endl;
 		return -1;
@@ -87,7 +99,9 @@ int ParticleFilter::LoadImage(const string& file_name) {
 
 void ParticleFilter::Denoise() {
 	double stddev = 100.0;
-	cv::GaussianBlur(d_img, d_denoised_img, cv::Size(7, 7), stddev);
+	cv::Mat img8u;
+	cv::GaussianBlur(d_img, img8u, cv::Size(7, 7), stddev);
+	img8u.convertTo(d_denoised_img, CV_64F);
 
 	const double zoom_scale = 4.0;
 	cv::Mat resized_img;
@@ -96,10 +110,10 @@ void ParticleFilter::Denoise() {
 	cv::resize(d_denoised_img, resized_img, cv::Size(small_cols, small_rows));
 	cv::Mat big_img;
 	cv::resize(resized_img, big_img, cv::Size(small_cols, small_rows));
-	
+
 }
 
-void ParticleFilter::FindConstraints(){
+void ParticleFilter::FindConstraints() {
 	for (int i = 0; i < d_denoised_img.cols; i++) {
 		for (int j = 0; j < d_denoised_img.rows; j++) {
 			double pg = exp(-1.0 * pow(d_denoised_img.at<double>(i, j) -
@@ -166,10 +180,10 @@ bool ParticleFilter::FindNext() {
 }
 
 int ParticleFilter::FindVectorDirection(double x, double y) {
-	double q2 = 1/pow(2.0, 0.5);
+	double q2 = 1 / pow(2.0, 0.5);
 	double step[8][2] = { {1., 0.}, {q2, q2}, {0., 1.}, {-q2, q2},
 		{-1., 0.}, {-q2, -q2}, {0., -1.}, {q2, -q2} };
-	
+
 	double mx = x * step[0][0] + y * step[0][1];
 	int ind = 0;
 	for (int i = 1; i < 8; i++) {
@@ -183,7 +197,7 @@ int ParticleFilter::FindVectorDirection(double x, double y) {
 	return ind;
 }
 
-bool ParticleFilter::FindNextDir(int pi, int dir, 
+bool ParticleFilter::FindNextDir(int pi, int dir,
 	vector<WeightTuple>& weights) {
 
 	Particle& p = d_particles[pi];
@@ -289,9 +303,9 @@ void ParticleFilter::FindCandidates(vector<WeightTuple>& weights) {
 		bool& complete = (weights[k].dir == 1) ? cand[i].complete1 :
 			cand[i].complete2;
 		pii& last = (weights[k].dir == 1) ? cand[i].last1 : cand[i].last2;
-		pii& penum = (weights[k].dir == 1) ? cand[i].penum1 : 
+		pii& penum = (weights[k].dir == 1) ? cand[i].penum1 :
 			cand[i].penum2;
-		int& dirpenum = (weights[k].dir == 1) ? cand[i].dirpenum1 : 
+		int& dirpenum = (weights[k].dir == 1) ? cand[i].dirpenum1 :
 			cand[i].dirpenum2;
 
 		int x = last.first;
@@ -346,7 +360,7 @@ void ParticleFilter::Prepare() {
 void ParticleFilter::InitializeParticles(pii& startpoint) {
 	int x = startpoint.first;
 	int y = startpoint.second;
-	int ind = FindVectorDirection(d_grad_x.at<double>(x, y), 
+	int ind = FindVectorDirection(d_grad_x.at<double>(x, y),
 		d_grad_y.at<double>(x, y));
 	int step[8][2] = { {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0},
 		{-1, -1}, {0, -1}, {1, -1} };
@@ -368,13 +382,22 @@ void ParticleFilter::InitializeParticles(pii& startpoint) {
 	}
 }
 
-void ParticleFilter:: FindContours(const string filename) {
+void ParticleFilter::FindContours(const string filename) {
 	Clear();
 	LoadImage(filename);
+	cout << "LoadImage done" << endl;
+
 	Denoise();
+	cout << "Denoise done" << endl;
+
 	Threshold();
+	cout << "Threshold done" << endl;
+
 	FindGradients();
+	cout << "FindGradients done" << endl;
+
 	FindConstraints();
+	cout << "FindConstraints done" << endl;
 
 	bool done = false;
 	while (!done) {
@@ -387,7 +410,7 @@ void ParticleFilter:: FindContours(const string filename) {
 		InitializeParticles(startpoint);
 
 		bool donefinding = false;
-		while(!donefinding){
+		while (!donefinding) {
 			FindNext();
 		}
 	}

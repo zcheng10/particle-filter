@@ -25,8 +25,13 @@ struct Particle {
 	std::pair<int, int> penum1;
 	std::pair<int, int> penum2;
 
-	Particle(std::pair<int, int> last, std::pair<int, int> penum, int dir, 
-		double w) {
+	/** You must have an empty constructor, otherwise `std::vector<Particle>`
+	    can not work
+	 */
+	Particle() = default;
+
+	Particle(std::pair<int, int> last, std::pair<int, int> penum, 
+		int dir, double w) {
 		if (dir == 1) {
 			last1 = last;
 			penum1 = penum;
