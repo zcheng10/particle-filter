@@ -4,6 +4,10 @@ using namespace std;
 
 using pii = pair<int, int>;
 
+void check_mat(const cv::Mat& m, const std::string& prompt = "") {
+	cout << prompt << m.rows << ", " << m.cols << " " << m.type() << endl;
+}
+
 void ParticleFilter::Threshold() {
 	int xi = 0;
 	int xf = d_img.cols;
@@ -114,8 +118,12 @@ void ParticleFilter::Denoise() {
 }
 
 void ParticleFilter::FindConstraints() {
-	for (int i = 0; i < d_denoised_img.cols; i++) {
-		for (int j = 0; j < d_denoised_img.rows; j++) {
+	check_mat(d_grad_x, "grad_x: ");
+	check_mat(d_grad_x, "grad_y: ");
+	check_mat(d_constraints, "constraints: ");
+
+	for (int i = 0; i < d_denoised_img.rows; i++) {
+		for (int j = 0; j < d_denoised_img.cols; j++) {
 			double pg = exp(-1.0 * pow(d_denoised_img.at<double>(i, j) -
 				d_I0, 2.0) / d_variance);
 			double grad = pow(d_grad_x.at<double>(i, j), 2.0) +
@@ -338,8 +346,8 @@ int ParticleFilter::FindFinalParticle() {
 
 void ParticleFilter::FindGradients() {
 	const int sobel_size = 11;
-	cv::Sobel(d_denoised_img, d_grad_x, CV_32FC1, 1, 0, 11);
-	cv::Sobel(d_denoised_img, d_grad_y, CV_32FC1, 0, 1, 11);
+	cv::Sobel(d_denoised_img, d_grad_x, CV_64F, 1, 0, 11);
+	cv::Sobel(d_denoised_img, d_grad_y, CV_64F, 0, 1, 11);
 }
 
 void ParticleFilter::Clear() {
@@ -354,7 +362,7 @@ void ParticleFilter::Prepare() {
 	d_denoised_img = d_img;
 	d_grad_x = d_img;
 	d_grad_y = d_img;
-	d_constraints = d_img;
+	d_constraints = cv::Mat(d_img.rows, d_img.cols, CV_64F); //  d_img;
 }
 
 void ParticleFilter::InitializeParticles(pii& startpoint) {
