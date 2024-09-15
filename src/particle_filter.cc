@@ -21,8 +21,8 @@ void ParticleFilter::Threshold() {
 
 	const int L = 256;
 	vector<int> gray_levels(L, 0);
-	for (int i = 0; i < d_cols; i++) {
-		for (int j = 0; j < d_rows; j++) {
+	for (int i = 0; i < d_rows; i++) {
+		for (int j = 0; j < d_cols; j++) {
 			int ind = (int)d_denoised_img.at<double>(i, j);
 			ind = std::max(ind, 0);
 			ind = std::min(ind, 255);
@@ -145,10 +145,10 @@ bool ParticleFilter::FindStartpoint(pii& startpoint) {
 				continue;
 			}
 
-			if (d_constraints.at<double>(i, j) > mx) {
+			if (d_constraints.at<double>(j, i) > mx) {
 				x = i;
 				y = j;
-				mx = d_constraints.at<double>(i, j);
+				mx = d_constraints.at<double>(j, i);
 			}
 		}
 	}
@@ -192,9 +192,12 @@ bool ParticleFilter::FindNext() {
 	return done;
 }
 
+
+/** the direction is a value between 0 and 7, i.e. 8 directions
+ */
 int ParticleFilter::FindVectorDirection(double x, double y) {
-	double q2 = 1 / pow(2.0, 0.5);
-	double step[8][2] = { {1., 0.}, {q2, q2}, {0., 1.}, {-q2, q2},
+	const double q2 = 1 / pow(2.0, 0.5);
+	const double step[8][2] = { {1., 0.}, {q2, q2}, {0., 1.}, {-q2, q2},
 		{-1., 0.}, {-q2, -q2}, {0., -1.}, {q2, -q2} };
 
 	double mx = x * step[0][0] + y * step[0][1];
@@ -210,12 +213,13 @@ int ParticleFilter::FindVectorDirection(double x, double y) {
 	return ind;
 }
 
+
 bool ParticleFilter::FindNextDir(int pi, int dir,
 	vector<WeightTuple>& weights) {
 
 	Particle& p = d_particles[pi];
 
-	int step[8][2] = { {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0},
+	const int step[8][2] = { {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0},
 		{-1, -1}, {0, -1}, {1, -1} };
 
 	bool& complete = (dir == 1) ? p.complete1 : p.complete2;
@@ -223,8 +227,8 @@ bool ParticleFilter::FindNextDir(int pi, int dir,
 	pii& penum = (dir == 1) ? p.penum1 : p.penum2;
 	int& dirpenum = (dir == 1) ? p.dirpenum1 : p.dirpenum2;
 
-	double grad_x = d_grad_x.at<double>(last.first, last.second);
-	double grad_y = d_grad_y.at<double>(last.first, last.second);
+	double grad_x = d_grad_x.at<double>(last.second, last.first);
+	double grad_y = d_grad_y.at<double>(last.second, last.first);
 	int index = FindVectorDirection(grad_x, grad_y);
 
 	bool done = false;
@@ -259,16 +263,18 @@ bool ParticleFilter::FindNextDir(int pi, int dir,
 		}
 
 		double logcons = -100000.0;
-		if (d_constraints.at<double>(xit.first, xit.second) > 0) {
-			logcons = log(d_constraints.at<double>(xit.first, xit.second));
+		if (d_constraints.at<double>(xit.second, xit.first) > 0) {
+			logcons = log(d_constraints.at<double>(xit.second, xit.first));
 		}
+
 		double newweight = p.weight + logcons;
-		weights.push_back(WeightTuple(newweight, pi, xit.first, xit.second,
+		weights.push_back(WeightTuple(newweight, pi, xit.second, xit.first,
 			index, dir));
 	}
 
 	return done;
 }
+
 
 void ParticleFilter::FindCandidates(vector<WeightTuple>& weights) {
 	sort(weights.rbegin(), weights.rend());
@@ -360,11 +366,13 @@ int ParticleFilter::FindFinalParticle() {
 	return ind;
 }
 
+
 void ParticleFilter::FindGradients() {
 	const int sobel_size = 11;
 	cv::Sobel(d_denoised_img, d_grad_x, CV_64F, 1, 0, 11);
 	cv::Sobel(d_denoised_img, d_grad_y, CV_64F, 0, 1, 11);
 }
+
 
 void ParticleFilter::Clear() {
 	d_img.release();
@@ -373,6 +381,7 @@ void ParticleFilter::Clear() {
 	d_grad_y.release();
 	d_constraints.release();
 }
+
 
 void ParticleFilter::Prepare() {
 	d_cols = d_img.cols;
@@ -384,30 +393,39 @@ void ParticleFilter::Prepare() {
 	d_found.resize(d_cols, vector<bool>(d_rows, false));
 }
 
+
 void ParticleFilter::InitializeParticles(pii& startpoint) {
 	int x = startpoint.first;
 	int y = startpoint.second;
-	int ind = FindVectorDirection(d_grad_x.at<double>(x, y),
-		d_grad_y.at<double>(x, y));
-	int step[8][2] = { {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0},
+	int ind = FindVectorDirection(d_grad_x.at<double>(y, x),
+		d_grad_y.at<double>(y, x));
+	
+	const int step[8][2] = { {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0},
 		{-1, -1}, {0, -1}, {1, -1} };
+	
 	d_particles.resize(d_N);
+
 	for (int i = 1; i <= d_N; i++) {
 		pii next = { -1, -1 };
-		next.first = x + step[ind + i][0];
-		next.second = y + step[ind + i][1];
-		double weight = log(d_constraints.at<double>(next.first, next.second))
-			+ log(d_constraints.at<double>(x, y));
+		next.first = x + step[(ind + i) % 8][0];
+		next.second = y + step[(ind + i) % 8][1];
+		
 		if (!PixValid(next.first, next.second)) {
-			next.first = x - step[ind + i][0];
-			next.second = y - step[ind + i][1];
+			next.first = x - step[(ind + i) % 8][0];
+			next.second = y - step[(ind + i) % 8][1];
+			double weight = log(d_constraints.at<double>(next.second, next.first))
+				+ log(d_constraints.at<double>(y, x));
 			d_particles[i - 1] = Particle(next, startpoint, 2, weight);
 			continue;
 		}
 
+		double weight = log(d_constraints.at<double>(next.second, next.first))
+			+ log(d_constraints.at<double>(y, x));
+
 		d_particles[i - 1] = Particle(next, startpoint, 1, weight);
 	}
 }
+
 
 void ParticleFilter::FindContours(const string filename) {
 	Clear();
@@ -429,19 +447,21 @@ void ParticleFilter::FindContours(const string filename) {
 	bool done = false;
 	while (!done) {
 		pii startpoint = { -1, -1 };
-		bool done = FindStartpoint(startpoint);
+		bool found = FindStartpoint(startpoint);
 		cout << "Startpoint: " << startpoint.first << ", " << startpoint.second;
-		cout << endl;
-		if (!false) {
+		if (!found) {
 			break;
 		}
 
 		InitializeParticles(startpoint);
+		cout << " -> initialized particles" << endl;
 
 		bool donefinding = false;
 		while (!donefinding) {
 			FindNext();
 		}
+
+		cout << "contour found" << endl;
 	}
 }
 
