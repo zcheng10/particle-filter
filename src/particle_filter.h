@@ -51,6 +51,22 @@ struct Particle {
 		complete2 = true;
 		weight = w;
 	}
+
+	void print() {
+		std::cout << "Particle: " << std::endl;
+		std::cout << "Number of Pixels: " << pix.size() << std::endl;
+		std::cout << "Weight = " << weight << std::endl;
+		std::cout << "Last1 = " << last1.first << ", " << 
+			last1.second << std::endl;
+		std::cout << "Last2 = " << last2.first << ", " << 
+			last2.second << std::endl;
+		std::cout << "Penum1 = " << penum1.first << ", " << 
+			penum1.second << std::endl;
+		std::cout << "Penum2 = " << penum2.first << ", " << 
+			penum2.second << std::endl;
+		std::cout << "Complete1 = " << complete1 << ", Complete2 = " << complete2;
+		std::cout << std::endl;
+	}
 };
 
 struct Bbox {
@@ -137,6 +153,7 @@ public:
 
 	std::vector<Particle> d_particles;
 	std::vector<Particle> d_contourpaths;
+	std::vector<std::vector<bool>> d_found;
 
 	ParticleFilter(double thres = 0.14, double l = 150, 
 		double sc = 4.0, double we = 0.2) {

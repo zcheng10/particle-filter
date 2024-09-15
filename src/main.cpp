@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 
 	const string file_name = std::string(argv[1]);
 		// "Image1.jpg";
-	ParticleFilter filter = (0.14, 150, 4.0, 0.2);
+	ParticleFilter filter = (0.05, 150, 4.0, 0.2);
 	filter.FindContours(file_name);
 	cout << "contour extracted" << endl;
 
@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
 	cv::Mat Img = filter.d_img;
 	cv::Mat outImg;
 	cv::cvtColor(Img, outImg, cv::COLOR_GRAY2BGR);
+	cout << "Contours found: " << filter.d_contourpaths.size() << endl;
 	for (auto& it : filter.d_contourpaths) {
 		for (auto& it2 : it.pix) {
 			cv::Vec3b pixch = outImg.at<double>(it2.first, it2.second);
@@ -56,6 +57,8 @@ int main(int argc, char** argv) {
 			pixch[1] = 0.0;
 			pixch[2] = 255.0;
 		}
+
+		it.print();
 	}
 
 	cv::imwrite(output_file, outImg);

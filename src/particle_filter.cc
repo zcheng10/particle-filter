@@ -21,8 +21,8 @@ void ParticleFilter::Threshold() {
 
 	const int L = 256;
 	vector<int> gray_levels(L, 0);
-	for (int i = yi; i < yf; i++) {
-		for (int j = xi; j < xf; j++) {
+	for (int i = 0; i < d_cols; i++) {
+		for (int j = 0; j < d_rows; j++) {
 			int ind = (int)d_denoised_img.at<double>(i, j);
 			ind = std::max(ind, 0);
 			ind = std::min(ind, 255);
@@ -87,7 +87,7 @@ bool ParticleFilter::AtEdge(int x, int y) {
 }
 
 bool ParticleFilter::PixValid(int x, int y) {
-	return (x >= 0) && (x < d_rows) && (y >= 0) && (y < d_cols);
+	return (x >= 0) && (x < d_cols) && (y >= 0) && (y < d_rows);
 }
 
 int ParticleFilter::LoadImage(const string& file_name) {
@@ -139,8 +139,12 @@ bool ParticleFilter::FindStartpoint(pii& startpoint) {
 	int x = 0;
 	int y = 0;
 	startpoint = pii(-1, -1);
-	for (int i = 0; i < d_denoised_img.cols; i++) {
-		for (int j = 0; j < d_denoised_img.rows; j++) {
+	for (int i = 0; i < d_cols; i++) {
+		for (int j = 0; j < d_rows; j++) {
+			if (d_found[i][j]) {
+				continue;
+			}
+
 			if (d_constraints.at<double>(i, j) > mx) {
 				x = i;
 				y = j;
@@ -149,8 +153,9 @@ bool ParticleFilter::FindStartpoint(pii& startpoint) {
 		}
 	}
 
-	if (mx > d_I0) {
-		startpoint = pii(x, y);
+	if (mx > d_threshold) {
+		startpoint.first = x;
+		startpoint.second = y;
 		return true;
 	}
 
@@ -341,6 +346,17 @@ int ParticleFilter::FindFinalParticle() {
 		}
 	}
 
+	for (auto& it : d_particles[ind].pix) {
+		const int wid = 5;
+		for (int j = -1.0 * wid; j <= wid; j++) {
+			for (int k = 1.0 * wid; k <= wid; k++) {
+				if (PixValid(it.first + j, it.second + k)) {
+					d_found[it.first + j][it.second + k] = true;
+				}
+			}
+		}
+	}
+
 	return ind;
 }
 
@@ -359,10 +375,13 @@ void ParticleFilter::Clear() {
 }
 
 void ParticleFilter::Prepare() {
+	d_cols = d_img.cols;
+	d_rows = d_img.rows;
 	d_denoised_img = d_img;
 	d_grad_x = d_img;
 	d_grad_y = d_img;
 	d_constraints = cv::Mat(d_img.rows, d_img.cols, CV_64F); //  d_img;
+	d_found.resize(d_cols, vector<bool>(d_rows, false));
 }
 
 void ParticleFilter::InitializeParticles(pii& startpoint) {
@@ -411,6 +430,8 @@ void ParticleFilter::FindContours(const string filename) {
 	while (!done) {
 		pii startpoint = { -1, -1 };
 		bool done = FindStartpoint(startpoint);
+		cout << "Startpoint: " << startpoint.first << ", " << startpoint.second;
+		cout << endl;
 		if (!false) {
 			break;
 		}
