@@ -37,7 +37,8 @@ int main(int argc, char** argv) {
 
 	const string file_name = std::string(argv[1]);
 		// "Image1.jpg";
-	ParticleFilter filter = (0.05, 150, 4.0, 0.2);
+	ParticleFilter filter = ParticleFilter(0.99, 150, 4.0, 0.2);
+	cout << "filter lambda = " << filter.d_lambda << endl;
 	filter.FindContours(file_name);
 	cout << "contour extracted" << endl;
 
@@ -52,15 +53,18 @@ int main(int argc, char** argv) {
 	cout << "Contours found: " << filter.d_contourpaths.size() << endl;
 	for (auto& it : filter.d_contourpaths) {
 		for (auto& it2 : it.pix) {
-			cv::Vec3b pixch = outImg.at<double>(it2.first, it2.second);
-			pixch[0] = 0.0;
-			pixch[1] = 0.0;
-			pixch[2] = 255.0;
+			cv::Vec3b& pixch = outImg.at<Vec3b>(it2.first, it2.second);
+			pixch[0] = 0;
+			pixch[1] = 0;
+			pixch[2] = 255;
 		}
 
 		it.print();
 	}
 
 	cv::imwrite(output_file, outImg);
+
+	const string denoised_output_file = baseName + "_denoised" + ext;
+	cv::imwrite(denoised_output_file, filter.d_denoised_img);
 	return 0;
 }

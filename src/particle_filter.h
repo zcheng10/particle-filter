@@ -75,11 +75,25 @@ struct Bbox {
 	int x_end;
 	int y_end;
 	
+	Bbox() = default;
+
 	Bbox(int x1, int x2, int y1, int y2) {
 		x_start = x1;
 		x_end = x2; 
 		y_start = y1;
 		y_end = y2;
+	}
+
+	void shrinkBy(int x) {
+		x_start += x;
+		x_end -= x;
+		y_start += x;
+		y_end -= x;
+	}
+
+	void print() {
+		std::cout << x_start << ", " << x_end << std::endl;
+		std::cout << y_start << ", " << y_end << std::endl;
 	}
 };
 
@@ -145,24 +159,27 @@ public:
 	int d_rows;
 	int d_cols;
 
+	Bbox d_area;
+
 	cv::Mat d_img;
 	cv::Mat d_denoised_img;
 	cv::Mat d_grad_x;
 	cv::Mat d_grad_y;
 	cv::Mat d_constraints;
+	cv::Mat d_logconstraints;
 
 	std::vector<Particle> d_particles;
 	std::vector<Particle> d_contourpaths;
 	std::vector<std::vector<bool>> d_found;
 
-	ParticleFilter(double thres = 0.14, double l = 150, 
-		double sc = 4.0, double we = 0.2) {
+	ParticleFilter(double thres, double l, double sc, double we) {
 		d_threshold = thres;
 		d_lambda = l;
 		d_zoom_scale = sc;
 		d_zoom_weight = we;
 	}
 
+	void Convolve(cv::Mat& m, cv::Mat& res, std::vector<std::vector<double> > & kern);
 	void Threshold();
 	int LoadImage(const std::string& file);
 	void Clear();
@@ -175,6 +192,7 @@ public:
 	void FindCandidates(std::vector<WeightTuple>& weights);
 	int FindFinalParticle();
 	void FindGradients();
+	void MakeGradientsContinuous(int& graddir, int& prevgraddir);
 	int FindVectorDirection(double x, double y);
 	void FindContours(const std::string filename);
 	bool AtEdge(int x, int y);
