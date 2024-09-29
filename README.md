@@ -1,7 +1,10 @@
-Run
-`build.bat`
-to buuild in Windows.
+## Build and test
+To build in Window, run
 
-Run 
-`gtest.bat`
-to test an image
+`build.bat`
+
+To test an image, run 
+
+`gtest.bat [image_file]`
+
+If the `image_file` is not given, it will test `test/Image1.jpg`.
