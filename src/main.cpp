@@ -28,6 +28,8 @@ std::pair<std::string, std::string> splitext(const std::string& name)
 	return std::make_pair(name.substr(0, p), name.substr(p));
 }
 
+
+
 int main(int argc, char** argv) {
 	if (argc < 2) {
 		// -- print usage
@@ -37,7 +39,13 @@ int main(int argc, char** argv) {
 
 	const string file_name = std::string(argv[1]);
 		// "Image1.jpg";
-	ParticleFilter filter = ParticleFilter(0.99, 150, 4.0, 0.2);
+
+	double thres = 0.99;
+	int lambda = 150;
+	GetEnv("RZ_LAMBDA", lambda);
+	GetEnv("RZ_THRES", thres);
+
+	ParticleFilter filter = ParticleFilter(thres, lambda, 4.0, 0.2);
 	cout << "filter lambda = " << filter.d_lambda << endl;
 	filter.FindContours(file_name);
 	cout << "contour extracted" << endl;

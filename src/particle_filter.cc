@@ -1,4 +1,5 @@
 #include "particle_filter.h"
+#include "spdlog/spdlog.h"
 
 using namespace std;
 
@@ -47,9 +48,12 @@ int ParticleFilter::LoadImage(const string& file_name) {
 }
 
 void ParticleFilter::Denoise() {
-	double stddev = 100.0;
+	double stddev = 10; // 100.0;
+	int gauss_sz = 7;
+	GetEnv("RZ_GAUSS", gauss_sz);
+
 	cv::Mat img8u;
-	cv::GaussianBlur(d_img, img8u, cv::Size(7, 7), stddev);
+	cv::GaussianBlur(d_img, img8u, cv::Size(gauss_sz, gauss_sz), stddev); // 7
 	img8u.convertTo(d_denoised_img, CV_64F);
 
 	cv::Mat resized_img; cout << __LINE__ << endl;
@@ -64,9 +68,8 @@ void ParticleFilter::Denoise() {
 }
 
 void ParticleFilter::FindConstraints() {
-	check_mat(d_grad_x, "grad_x: ");
-	check_mat(d_grad_x, "grad_y: ");
-	check_mat(d_constraints, "constraints: ");
+	cout << __func__ << ": d_lambda = " << d_lambda 
+		<< ", d_variance = " << d_variance << endl;
 
 	for (int i = d_area.x_start; i < d_area.x_end; i++) {
 		for (int j = d_area.y_start; j < d_area.y_end; j++) {
@@ -79,10 +82,10 @@ void ParticleFilter::FindConstraints() {
 
 			if (pg * pl == 0) {
 				d_logconstraints.at<double>(i, j) = -100000.0;
-				continue;
 			}
-
-			d_logconstraints.at<double>(i, j) = log(pg * pl);
+			else {
+				d_logconstraints.at<double>(i, j) = log(pg * pl);
+			}
 		}
 	}
 }
@@ -106,9 +109,8 @@ bool ParticleFilter::FindStartpoint(pii& startpoint) {
 		}
 	}
 
-	cout << "threshold = " << d_threshold << endl;
-	cout << "mx = " << mx << endl;
-	cout << "mx > d_threshold = " << (mx > d_threshold) << endl;
+	spdlog::info("threshold = {}, mx = {}, mx > d_threshold = {}",
+		d_threshold, mx, (mx > d_threshold));
 
 	if (mx > d_threshold) {
 		startpoint.first = x;
@@ -161,7 +163,13 @@ bool ParticleFilter::FindNext() {
 /** the direction is a value between 0 and 7, i.e. 8 directions
  */
 int ParticleFilter::FindVectorDirection(double x, double y) {
-	const double q2 = 1 / pow(2.0, 0.5);
+
+	if (fabs(x) < 1e-6 && fabs(y) < 1e-6) {
+		spdlog::warn("0 grad! {} {}", x, y);
+		return -1;
+	}
+
+	const double q2 = 1 / sqrt(2.0);
 	const double step[8][2] = { {1., 0.}, {q2, q2}, {0., 1.}, {-q2, q2},
 		{-1., 0.}, {-q2, -q2}, {0., -1.}, {q2, -q2} };
 
@@ -193,18 +201,22 @@ bool ParticleFilter::FindNextDir(int pi, int dir, vector<WeightTuple>& weights) 
 	double grad_y = d_grad_y.at<double>(last.first, last.second);
 	int index = FindVectorDirection(grad_x, grad_y);
 
+	if (index < 0) {
+		weights.push_back(WeightTuple(p.weight, pi, -2, -2, -2, dir));
+		return false;
+	}
+
 	bool done = false;
 
 	if (complete) {
 		weights.push_back(WeightTuple(p.weight, pi, -1, -1, -1, -1));
-		done = true;
-		return done;
+		return true;
 	}
 
 	for (int i = 1; i <= 3; i++) {
 		int ind = (dir == 1) ? (index + i) % 8 : (index - i + 8) % 8;
 		int xit1 = last.first + step[ind][0];
-		int xit2 = last.second + step[ind][1];// cout << __LINE__ << endl;
+		int xit2 = last.second + step[ind][1]; // cout << __LINE__ << endl;
 		if (xit1 == penum.first && xit2 == penum.second) {
 			index = (index + 4) % 8;
 			break;
@@ -240,6 +252,9 @@ bool ParticleFilter::FindNextDir(int pi, int dir, vector<WeightTuple>& weights) 
 
 void ParticleFilter::FindCandidates(vector<WeightTuple>& weights) {
 	sort(weights.rbegin(), weights.rend());
+	/* sort(weights.begin(), weights.end(), [](const WeightTuple& a, const WeightTuple& b) {
+		return b < a;
+		}); */
 
 	vector<int> dist_ind;
 	for (int i = 0; i < weights.size(); i++) {
@@ -386,6 +401,17 @@ void ParticleFilter::FindGradients() {
 	Convolve(d_denoised_img, d_grad_x, xkern);
 	Convolve(d_denoised_img, d_grad_y, ykern);
 	d_area.shrinkBy(sobel_size / 2);
+
+	// d_grad_x /= 4;
+	// d_grad_y /= 4;
+
+	cv::Mat a, b;
+	cv::multiply(d_grad_x, d_grad_x, a);
+	cv::multiply(d_grad_y, d_grad_y, b);
+	a += b;
+	cv::sqrt(a, b);
+
+	cv::imwrite("test/clue_gradient.jpg", b);
 }
 
 
@@ -451,24 +477,22 @@ void ParticleFilter::InitializeParticles(pii& startpoint) {
 void ParticleFilter::FindContours(const string filename) {
 	Clear();
 	LoadImage(filename);
-	cout << "LoadImage done" << endl;
-	cout << "d_rows: " << d_rows << endl;
-	cout << "d_cols: " << d_cols << endl;
+	spdlog::info("LoadImage done, d_rows: {}, _cols: {}", d_rows, d_cols);
 
 	Denoise();
-	cout << "Denoise done" << endl;
+	spdlog::info("Denoise done");
 
 	Threshold();
-	cout << "Threshold done" << endl;
+	spdlog::info("Threshold done");
 
 	FindGradients();
-	cout << "FindGradients done" << endl;
+	spdlog::info("FindGradients done");
 
 	FindConstraints();
-	cout << "FindConstraints done" << endl;
+	spdlog::info("FindConstraints done");
 
 	cv::Mat constraintoutput = cv::Mat::zeros(d_rows, d_cols, CV_64F);
-	cout << "I0 = " << d_I0 << endl;
+	spdlog::info("I0 = {}", d_I0);
 	cout << "mean denoised = " << cv::mean(d_denoised_img) << endl;
 	
 	double mxcn = 0.0;
@@ -481,21 +505,21 @@ void ParticleFilter::FindContours(const string filename) {
 
 	cout << "min log constraint = " << mxcn << endl;
 
-	cv::imwrite("test/Thresholded.jpg", constraintoutput);
+	cv::imwrite("test/clue_Thresholded.jpg", constraintoutput);
 
 	bool done = false;
+	int num_start = 0;
 	while (!done) {
 		pii startpoint = { -1, -1 };
 		bool found = FindStartpoint(startpoint);
+		if (!found) break;
 
-		cout << "found = " << found << endl;
-		if (!found) {
-			break;
-		}
+		num_start++;
+		spdlog::info("found the {} -th start point", num_start);
 
-		cout << "Startpoint: " << startpoint.first << ", " << startpoint.second;
-		cout << "constraint: " << d_constraints.at<double>(startpoint.first, startpoint.second);
-		cout << endl;
+		spdlog::info("Startpoint: {}, {}; constraint = {}",
+			startpoint.first, startpoint.second, 
+			d_constraints.at<double>(startpoint.first, startpoint.second));
 
 		InitializeParticles(startpoint);
 		cout << " -> initialized particles" << endl;

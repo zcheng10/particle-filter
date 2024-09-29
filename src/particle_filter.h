@@ -1,5 +1,7 @@
 #pragma once
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -8,6 +10,10 @@
 #include <cmath>
 #include "opencv2/opencv.hpp"
 #include <algorithm>
+
+#include "spdlog/spdlog.h"
+
+
 
 struct Particle {
 	std::set<std::pair<int, int>> pix;
@@ -53,19 +59,21 @@ struct Particle {
 	}
 
 	void print() {
-		std::cout << "Particle: " << std::endl;
-		std::cout << "Number of Pixels: " << pix.size() << std::endl;
-		std::cout << "Weight = " << weight << std::endl;
-		std::cout << "Last1 = " << last1.first << ", " << 
-			last1.second << std::endl;
-		std::cout << "Last2 = " << last2.first << ", " << 
+		std::stringstream os;
+		// os << "Particle: " << std::endl;
+		const std::string SEP = "; ";
+		os << "Number of Pixels: " << pix.size() << SEP;
+		os << "Weight = " << weight << std::endl;
+		os << "Last1 = " << last1.first << ", " << 
+			last1.second << SEP;
+		os << "Last2 = " << last2.first << ", " << 
 			last2.second << std::endl;
-		std::cout << "Penum1 = " << penum1.first << ", " << 
-			penum1.second << std::endl;
-		std::cout << "Penum2 = " << penum2.first << ", " << 
-			penum2.second << std::endl;
-		std::cout << "Complete1 = " << complete1 << ", Complete2 = " << complete2;
-		std::cout << std::endl;
+		os << "Penum1 = " << penum1.first << ", " <<
+			penum1.second << SEP;
+		os << "Penum2 = " << penum2.first << ", " << 
+			penum2.second << SEP;
+		os << "Complete1 = " << complete1 << ", Complete2 = " << complete2 << std::endl;
+		spdlog::info("Particle: {}", os.str());
 	}
 };
 
@@ -116,20 +124,21 @@ struct WeightTuple {
 	int dir;
 
 	bool operator < (const WeightTuple& w) const {
-		if (weight == w.weight && index == w.index 
+		const bool equalWeight = fabs(weight - w.weight) < 1e-10;
+		if (equalWeight && index == w.index 
 			&& next == w.next && dirpenum == w.dirpenum) {
 			return dir < w.dir;
 		}
 
-		if (weight == w.weight && index == w.index && next == w.next) {
+		if (equalWeight && index == w.index && next == w.next) {
 			return dirpenum < w.dirpenum;
 		}
 
-		if (weight == w.weight && index == w.index) {
+		if (equalWeight && index == w.index) {
 			return next < w.next;
 		}
 
-		if (weight == w.weight) {
+		if (equalWeight) {
 			return index < w.index;
 		}
 
@@ -200,3 +209,14 @@ public:
 	void InitializeParticles(std::pair<int, int>& startpoint);
 	std::vector<Particle> GetContourPaths();
 };
+
+/** get env variable */
+template <typename T>
+void GetEnv(const std::string& VAR, T& t)
+{
+	const char* ev = std::getenv(VAR.c_str());
+	if (ev) {
+		std::istringstream is(ev);
+		is >> t;
+	}
+}
